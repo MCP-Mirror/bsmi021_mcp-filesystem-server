@@ -1,561 +1,271 @@
 # Filesystem MCP Server
 
-A comprehensive Model Context Protocol (MCP) server that provides advanced file system operations, file analysis, and compression tools with enterprise-grade security and performance features.
+A Model Context Protocol (MCP) server implementation providing file system operations, analysis, and manipulation capabilities through a standardized tool interface.
 
-## Features
+## Architecture
 
-- **File Operations**
-  - List directory contents with detailed metadata
-  - Create, delete, move, and copy files/directories
-  - Read and write files with encoding support
-  - Batch operations on multiple files
-  - Automatic parent directory creation
-  - Secure file handling with access controls
+The server is built on the MCP SDK and organized into distinct layers:
 
-- **Search & Analysis**
-  - Search files for text/regex patterns with context
-  - Text file analysis (lines, words, characters)
-  - File encoding detection
-  - MIME type identification
-  - File integrity verification (hashing)
-  - Find duplicate files
-  - Performance optimized for large directories
+```mermaid
+graph TD
+    A[MCP Server Layer] --> B[Tool Registry]
+    B --> C[Operations Layer]
+    C --> D[File System Operations]
+    C --> E[Analysis Operations]
+    C --> F[Stream Operations]
+```
 
-- **Compression**
-  - Create zip archives with configurable compression levels
-  - Extract zip archives with security validation
-  - Recursive directory compression
-  - Streaming support for large files
-
-- **Security**
-  - Path traversal protection
-  - File access controls
-  - Resource usage limits
-  - Input validation
-  - Secure error handling
+### Components
+- **Server Layer**: Handles MCP protocol communication and tool dispatch
+- **Tool Registry**: Manages tool registration and execution
+- **Operations Layer**: Implements core functionality
+- **File System Interface**: Provides safe file system access
 
 ## Installation
 
 1. Clone the repository:
-
 ```bash
 git clone <repository-url>
 cd filesystem-server
 ```
 
 2. Install dependencies:
-
 ```bash
 npm install
 ```
 
 3. Build the server:
-
 ```bash
 npm run build
 ```
 
-4. Configure server settings (config/server.json):
-
-```json
-{
-  "security": {
-    "maxFileSize": 104857600,        // 100MB
-    "allowedPaths": ["/data", "/tmp"],
-    "blockedExtensions": [".exe", ".dll"],
-    "enableAccessControl": true
-  },
-  "performance": {
-    "maxConcurrentOperations": 10,
-    "cacheSize": 1000,
-    "streamingThreshold": 52428800   // 50MB
-  },
-  "monitoring": {
-    "enableMetrics": true,
-    "logLevel": "info",
-    "metricsPort": 9090
-  }
-}
-```
-
-5. Add to MCP settings (cline_mcp_settings.json):
-
+4. Configure MCP settings (cline_mcp_settings.json):
 ```json
 {
   "mcpServers": {
     "filesystem": {
       "command": "node",
-      "args": ["path/to/filesystem-server/build/index.js"],
-      "env": {
-        "NODE_ENV": "production",
-        "CONFIG_PATH": "path/to/config/server.json"
-      }
+      "args": ["path/to/filesystem-server/build/index.js"]
     }
   }
 }
 ```
 
-## Tools Reference
+## Tool Reference
 
 ### Directory Operations
 
 #### list_directory
-
-List contents of a directory with detailed metadata.
+Lists directory contents with metadata.
 
 ```typescript
-{
-  name: "list_directory",
-  arguments: {
-    path: string,       // Directory path to list
-    recursive?: boolean, // List recursively (default: false)
-    includeHidden?: boolean, // Include hidden files (default: false)
-    maxDepth?: number,  // Maximum recursion depth
-    filter?: string     // File pattern filter
-  }
+interface ListDirectoryParams {
+    path: string;       // Directory path
+    recursive?: boolean; // List recursively (default: false)
 }
-```
 
-Example:
-
-```typescript
-{
-  "path": "/path/to/directory",
-  "recursive": true,
-  "maxDepth": 3,
-  "filter": "*.{txt,md,json}"
+interface ListDirectoryResult {
+    entries: {
+        name: string;
+        path: string;
+        isDirectory: boolean;
+        size: number;
+        created: string;
+        modified: string;
+        accessed: string;
+        mode: string;
+    }[];
 }
 ```
 
 #### create_directory
-
-Create a new directory with secure permissions.
+Creates a new directory.
 
 ```typescript
-{
-  name: "create_directory",
-  arguments: {
-    path: string,       // Path of directory to create
-    recursive?: boolean, // Create parent directories (default: true)
-    mode?: number,      // Directory permissions (default: 0755)
-    owner?: string      // Directory owner (if supported)
-  }
+interface CreateDirectoryParams {
+    path: string;       // Directory path
+    recursive?: boolean; // Create parent directories (default: true)
 }
 ```
 
 ### File Operations
 
 #### read_file
-
-Read the contents of a file with streaming support.
+Reads file content with encoding support.
 
 ```typescript
-{
-  name: "read_file",
-  arguments: {
-    path: string,     // Path of file to read
-    encoding?: string, // File encoding (default: utf8)
-    start?: number,   // Start byte position
-    end?: number,     // End byte position
-    stream?: boolean  // Use streaming for large files
-  }
+interface ReadFileParams {
+    path: string;     // File path
+    encoding?: string; // File encoding (default: 'utf8')
 }
 ```
 
 #### write_file
-
-Write content to a file with atomic operations.
+Writes content to a file.
 
 ```typescript
-{
-  name: "write_file",
-  arguments: {
-    path: string,            // Path of file to write
-    content: string,         // Content to write
-    encoding?: string,       // File encoding (default: utf8)
-    createParentDirs?: boolean, // Create parent directories (default: true)
-    mode?: number,          // File permissions (default: 0644)
-    atomic?: boolean        // Use atomic write (default: true)
-  }
+interface WriteFileParams {
+    path: string;     // File path
+    content: string;  // Content to write
+    encoding?: string; // File encoding (default: 'utf8')
 }
 ```
 
 #### append_file
-
-Append content to a file with locking.
-
-```typescript
-{
-  name: "append_file",
-  arguments: {
-    path: string,            // Path of file to append to
-    content: string,         // Content to append
-    encoding?: string,       // File encoding (default: utf8)
-    createParentDirs?: boolean, // Create parent directories (default: true)
-    lockFile?: boolean       // Use file locking (default: true)
-  }
-}
-```
-
-### Search & Analysis
-
-#### search_in_files
-
-Search for text/regex pattern in files with performance optimizations.
+Appends content to a file.
 
 ```typescript
-{
-  name: "search_in_files",
-  arguments: {
-    path: string,       // Directory path to search in
-    pattern: string,    // Regular expression pattern
-    recursive?: boolean, // Search recursively (default: true)
-    maxResults?: number, // Maximum results to return
-    contextLines?: number, // Lines of context around matches
-    ignoreCase?: boolean  // Case-insensitive search
-  }
+interface AppendFileParams {
+    path: string;     // File path
+    content: string;  // Content to append
+    encoding?: string; // File encoding (default: 'utf8')
 }
 ```
 
-Example response:
-
-```json
-{
-  "results": [
-    {
-      "file": "/path/to/file.txt",
-      "line": 42,
-      "content": "matching line content",
-      "match": "matched text",
-      "context": {
-        "before": ["line 40", "line 41"],
-        "after": ["line 43", "line 44"]
-      }
-    }
-  ],
-  "metadata": {
-    "totalMatches": 5,
-    "filesScanned": 100,
-    "timeElapsed": "1.2s"
-  }
-}
-```
+### Analysis Operations
 
 #### analyze_text
-
-Comprehensive text file analysis with encoding detection.
+Analyzes text file properties.
 
 ```typescript
-{
-  name: "analyze_text",
-  arguments: {
-    path: string, // Path of text file to analyze
-    advanced?: boolean // Enable advanced analysis
-  }
+interface AnalyzeTextParams {
+    path: string; // File path
 }
-```
 
-Example response:
-
-```json
-{
-  "analysis": {
-    "lineCount": 100,
-    "wordCount": 500,
-    "charCount": 2500,
-    "encoding": "UTF-8",
-    "mimeType": "text/plain",
-    "advanced": {
-      "averageLineLength": 25,
-      "longestLine": 80,
-      "whitespacePercentage": 15.5,
-      "uniqueWords": 300
-    }
-  }
+interface AnalyzeTextResult {
+    lineCount: number;
+    wordCount: number;
+    charCount: number;
+    encoding: string;
+    mimeType: string;
 }
 ```
 
 #### calculate_hash
-
-Calculate file hash with progress reporting.
+Calculates file hash using specified algorithm.
 
 ```typescript
-{
-  name: "calculate_hash",
-  arguments: {
-    path: string,      // Path of file to hash
-    algorithm?: string, // Hash algorithm (default: sha256)
-    progress?: boolean // Enable progress reporting
-  }
+interface CalculateHashParams {
+    path: string;           // File path
+    algorithm?: 'md5' | 'sha1' | 'sha256' | 'sha512'; // Hash algorithm
+}
+
+interface CalculateHashResult {
+    hash: string;
+    algorithm: string;
 }
 ```
-
-Supported algorithms: md5, sha1, sha256, sha512
 
 #### find_duplicates
-
-Find duplicate files with optimization options.
+Identifies duplicate files in a directory.
 
 ```typescript
-{
-  name: "find_duplicates",
-  arguments: {
-    path: string, // Directory path to search for duplicates
-    minSize?: number, // Minimum file size to consider
-    quickScan?: boolean, // Use size-only comparison first
-    hashAlgorithm?: string // Hash algorithm for comparison
-  }
+interface FindDuplicatesParams {
+    path: string; // Directory path
+}
+
+interface FindDuplicatesResult {
+    duplicates: {
+        hash: string;
+        size: number;
+        files: string[];
+    }[];
 }
 ```
 
-Example response:
-
-```json
-{
-  "duplicates": [
-    {
-      "hash": "abc123...",
-      "size": 1024,
-      "files": [
-        "/path/to/file1.txt",
-        "/path/to/file2.txt"
-      ]
-    }
-  ],
-  "statistics": {
-    "totalFiles": 1000,
-    "duplicateGroups": 5,
-    "wastedSpace": "10.5MB"
-  }
-}
-```
-
-### Compression
+### Compression Operations
 
 #### create_zip
-
-Create optimized zip archives with progress reporting.
+Creates a ZIP archive.
 
 ```typescript
-{
-  name: "create_zip",
-  arguments: {
-    files: string[],    // Array of file paths to include
-    output: string,     // Output zip file path
-    level?: number,     // Compression level (0-9)
-    password?: string,  // Optional encryption
-    progress?: boolean  // Enable progress reporting
-  }
+interface CreateZipParams {
+    files: string[];  // Files to include
+    output: string;   // Output ZIP path
 }
 ```
 
 #### extract_zip
-
-Extract zip archives with security validation.
+Extracts a ZIP archive.
 
 ```typescript
-{
-  name: "extract_zip",
-  arguments: {
-    path: string,    // Path to zip file
-    output: string,  // Output directory path
-    validate?: boolean, // Validate contents before extraction
-    preservePermissions?: boolean // Keep original permissions
-  }
+interface ExtractZipParams {
+    path: string;    // ZIP file path
+    output: string;  // Output directory
 }
 ```
-
-## Security Considerations
-
-### Path Safety
-- All paths are normalized and validated
-- Prevents directory traversal attacks
-- Blocks access to sensitive system directories
-- Validates file extensions
-
-### Resource Protection
-- File size limits
-- Concurrent operation limits
-- Rate limiting for intensive operations
-- Memory usage monitoring
-
-### Access Control
-- Optional file permission enforcement
-- Owner/group validation
-- Operation auditing
-- Secure temporary file handling
-
-## Performance Optimization
-
-### File Operations
-- Streaming for large files
-- Buffered I/O for small files
-- Operation batching
-- Cache frequently accessed metadata
-
-### Search Operations
-- Worker thread pool
-- Incremental result streaming
-- Early termination options
-- Memory-efficient algorithms
-
-### Compression
-- Parallel compression
-- Adaptive buffer sizes
-- Progress reporting
-- Cancelable operations
-
-## Monitoring and Debugging
-
-### Metrics
-- Operation latency
-- Resource usage
-- Error rates
-- Cache hit rates
-
-### Logging
-- Structured JSON logs
-- Log levels configuration
-- Operation correlation IDs
-- Error context capture
-
-### Debugging
-- Debug mode with detailed logs
-- Operation tracing
-- Memory profiling
-- Performance analysis tools
 
 ## Error Handling
 
-The server implements comprehensive error handling:
+The server uses standard MCP error codes:
 
-### Operation Errors
 ```typescript
-interface OperationError {
-  code: string;        // Error code
-  message: string;     // Human-readable message
-  details?: {          // Additional context
-    path: string;      // Affected path
-    operation: string; // Attempted operation
-    reason: string;    // Failure reason
-  };
-  stack?: string;      // Stack trace (debug mode)
+enum ErrorCode {
+    ParseError = -32700,
+    InvalidRequest = -32600,
+    MethodNotFound = -32601,
+    InvalidParams = -32602,
+    InternalError = -32603
 }
 ```
 
-### Error Categories
-- **InvalidRequest**: Invalid parameters or unsupported operations
-  - Missing required parameters
-  - Invalid file paths
-  - Unsupported operations
-  - Permission violations
+Error responses include:
+- Error code
+- Human-readable message
+- Additional context when available
 
-- **MethodNotFound**: Unknown tool name
-
-- **SecurityError**: Security violations
-  - Path traversal attempts
-  - Permission denied
-  - Resource limits exceeded
-
-- **InternalError**: File system errors
-  - Permission denied
-  - File not found
-  - Disk full
-  - I/O errors
-
-Example error response:
-
+Example error:
 ```json
 {
-  "code": "SecurityError",
-  "message": "Access denied: operation not permitted on path",
-  "details": {
-    "path": "/protected/file.txt",
-    "operation": "write_file",
-    "reason": "path not in allowed paths list"
-  }
+    "code": -32602,
+    "message": "File not found: /path/to/file.txt"
 }
 ```
 
 ## Development
 
-### Setup Development Environment
+### Project Structure
+```
+src/
+├── operations/     # Core operations implementation
+├── tools/         # MCP tool definitions and handlers
+├── __tests__/     # Test suites
+├── index.ts       # Entry point
+├── server.ts      # MCP server setup
+├── types.ts       # Type definitions
+└── utils.ts       # Utility functions
+```
 
+### Running Tests
+
+Run the test suite:
 ```bash
-# Install dependencies with exact versions
-npm ci
+npm test
+```
 
-# Setup pre-commit hooks
-npm run prepare
-
-# Generate TypeScript types
-npm run codegen
+Run with coverage:
+```bash
+npm run test:coverage
 ```
 
 ### Development Mode
 
+Run in watch mode:
 ```bash
-# Run in watch mode with hot reload
 npm run watch
-
-# Run with debug logging
-DEBUG=filesystem-server:* npm run watch
-```
-
-### Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run specific test suite
-npm test -- --grep "file operations"
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run integration tests
-npm run test:integration
-```
-
-### Debugging
-
-```bash
-# Run MCP inspector
-npm run inspector
-
-# Enable debug logging
-DEBUG=filesystem-server:* npm start
-
-# Run with Node inspector
-node --inspect build/index.js
 ```
 
 ### Code Quality
 
+Lint the codebase:
 ```bash
-# Run linter
 npm run lint
-
-# Run type checker
-npm run type-check
-
-# Run security audit
-npm audit
-
-# Generate documentation
-npm run docs
 ```
 
-## API Documentation
-
-Full API documentation is available in the `docs` directory:
-
-- [API Reference](docs/api.md)
-- [Security Guide](docs/security.md)
-- [Performance Tuning](docs/performance.md)
-- [Error Codes](docs/errors.md)
-- [Configuration Guide](docs/configuration.md)
+Type check:
+```bash
+npm run type-check
+```
 
 ## Dependencies
 
@@ -564,25 +274,27 @@ Core dependencies:
 - file-type: File type detection
 - mime-types: MIME type lookup
 - crypto-js: File hashing
-- archiver: ZIP file creation
-- extract-zip: ZIP file extraction
-- iconv-lite: Text encoding conversion
-- chardet: Character encoding detection
+- archiver: ZIP creation
+- extract-zip: ZIP extraction
+- iconv-lite: Text encoding
+- chardet: Encoding detection
 
 Development dependencies:
-- typescript: Type checking and compilation
-- jest: Testing framework
-- eslint: Code linting
-- prettier: Code formatting
-- husky: Git hooks
+- typescript: Type system
+- jest: Testing
+- eslint: Linting
+- prettier: Formatting
 - ts-node: TypeScript execution
 - nodemon: Development server
-- nyc: Code coverage
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+1. Fork the repository
+2. Create your feature branch
+3. Write tests for new features
+4. Ensure all tests pass
+5. Submit a pull request
 
 ## License
 
-MIT - See [LICENSE](LICENSE) for details.
+MIT
